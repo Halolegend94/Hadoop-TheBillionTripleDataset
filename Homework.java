@@ -23,59 +23,60 @@ public class Homework {
 
 	/**
      * tokenize_line
-     * returns an ArrayList of strings each of them representing a RDF token
+     * returns an ArrayList of strings each of them representing a RDF token parsed from 
+     * the input string.
      * 
      * Description: tokenize an RDF line, splitting it in its constituent parts.
      */
 	public static ArrayList<String> tokenize_line(String line){
-        ArrayList<String> tokens = new ArrayList<String>();
-        StringBuffer buff = new StringBuffer();
-     
-      	  for (int i = 0; i < line.length(); i++){
-                Character ch = line.charAt(i);
-                if (ch == ' ' || ch == '\n' || ch == '\t'){
-                      //token parsed
-                      String result = buff.toString();
-                      if (!result.equals(".") && result.length() > 0)
-                            tokens.add(result);
-                      buff = new StringBuffer();
-                }else if (ch == '"'){
-              	  int escape = 0;
-                    boolean escaped = false;
-                    do{
-                          buff.append(ch);
-                          i+=1;
-                          ch = line.charAt(i);
-                          if(ch == '\\'){
+            ArrayList<String> tokens = new ArrayList<String>();
+            StringBuffer buff = new StringBuffer();
+      
+            for (int i = 0; i < line.length(); i++){
+            Character ch = line.charAt(i);
+            if (ch == ' ' || ch == '\n' || ch == '\t'){
+                  //token parsed
+                  String result = buff.toString();
+                  if (!result.equals(".") && result.length() > 0)
+                        tokens.add(result);
+                  buff = new StringBuffer();
+            }else if (ch == '"'){
+                  int escape = 0;
+                  boolean escaped = false;
+                  do{
+                        buff.append(ch);
+                        i+=1;
+                        ch = line.charAt(i);
+                        if(ch == '\\'){
                               escape++;
-                          }else if(escape > 0){
+                        }else if(escape > 0){
                               escaped = escape % 2 == 1;
                               escape = 0;
-                          }else{
+                        }else{
                               escaped = false;
-                          }
-                    }while(!(!escaped && ch == '"'));
-                      buff.append('"');
-                }else if(ch == '<'){
-                      do{
-                          buff.append(ch);
-                          i+=1;
-                          ch = line.charAt(i);
-                      }while(ch != '>');
-                      buff.append('>');
-                }else{
-                      buff.append(ch);
-                }
-          }
-        return tokens;
+                        }
+                  }while(!(!escaped && ch == '"'));
+                        buff.append('"');
+            }else if(ch == '<'){
+                  do{
+                        buff.append(ch);
+                        i+=1;
+                        ch = line.charAt(i);
+                  }while(ch != '>');
+                  buff.append('>');
+            }else{
+                  buff.append(ch);
+            }
+      }
+      return tokens;
   }
     
-    // ================ STEP 1 - Unique triples ========================================
+    // ================ JOB 1 - Unique triples ========================================
     
     /**
      * UniqueTripleMapper
      * 
-     * Description: This mapper associate to each triple the list of associated contexts.
+     * Description: This mapper associate to each triple its contexts.
      * @author cristian
      *
      */
@@ -105,7 +106,8 @@ public class Homework {
      * UniqueTripleReducer
      * 
      * Description: takes a triple and its associated list of contexts and computes the
-     * number of contexts and distinct contexts.
+     * total number of contexts, the number of distinct contexts, and the number of empty
+     * contexts.
      * @author cristian
      *
      */
@@ -128,9 +130,16 @@ public class Homework {
     	}
     }
     
-    // =============== STEP 2: triples with the largest number of different contexts ============
+    // =============== JOB 2: triples with the largest number of different contexts ============
     
-    
+    /**
+     * Map each triple to its count of distinct contexts, so we can see which triple has the highest
+     * number of distinct contexts.
+     * Plus, we map to special (negative) integers the number of blank subject and object, and the
+     * number of empty context.
+     * @author cristian
+     *
+     */
     public static class TriplesToContextCountMapper extends Mapper<Object, Text, IntWritable, Text>{
     	public void map(Object key, Text value, Context context)
 	        throws IOException, InterruptedException {
@@ -159,7 +168,14 @@ public class Homework {
     	}
     }
     
-
+    /**
+     * takes a special integer (-1, -2, -3) representing blanks or empty context, or a positive integer
+     * representing the count of distinct context, as key, a list of associated values, and
+     *  - for the positive integers, write the associated triples along the distinct count.
+     *  - for the three negatve integers, sum each value in the list of values.
+     * @author cristian
+     *
+     */
     public static class TriplesToContextCountReducer extends Reducer<IntWritable, Text, IntWritable, Text>{
     	
     	public void reduce(IntWritable key, Iterable<Text> values, Context context)
@@ -180,8 +196,12 @@ public class Homework {
     	}
     }
     
-    // =================================== STEP 3 PART 1 =============================================
-    
+    // ===================================JOB 3 PART 1 =============================================
+    /**
+     * count for each node the number of incoming and outcoming edges
+     * @author cristian
+     *
+     */
     public static class NodeToDegreeMapper extends Mapper<Object, Text, Text, Text>{
     	public void map(Object key, Text value, Context context)
 	        throws IOException, InterruptedException {
@@ -212,7 +232,8 @@ public class Homework {
     	}
     }
     
-    // =================================== STEP 3 PART 2 =============================================
+    
+    // =================================== JOB 4  =============================================
     
     public static int hashNode(String node){
     	int hash = 0;
@@ -258,7 +279,7 @@ public class Homework {
     	}
     }
     
-// =================================== STEP 3 PART 3 =============================================
+// =================================== JOB 5 =============================================
     public static String[] parsePartialDistr(String s){
     	String vals[] = new String[2];
     	StringBuffer buff = new StringBuffer();
@@ -287,7 +308,29 @@ public class Homework {
 	        context.write(new Text(vals[0]), new IntWritable(partial_count));
     	}
     }
-       
+    
+    // ============================ JOB 6 ========================================================
+    
+    public static class outdegreeToNodeMapper extends Mapper<Object, Text, IntWritable, Text>{
+    	public void map(Object key, Text value, Context context)
+	        throws IOException, InterruptedException {        
+	        ArrayList<String> tokens = tokenize_line(value.toString());        	        
+	        context.write(new IntWritable(Integer.valueOf(tokens.get(2))), new Text(tokens.get(0)));
+	
+    	}
+    }
+    
+    public static class outdegreeToNodeReducer extends Reducer<IntWritable, Text, IntWritable,Text>{
+    	
+    	public void reduce(IntWritable key, Iterable<Text> values, Context context)
+    			throws IOException, InterruptedException{
+    		
+    		for(Text v : values){
+    	 		context.write(key, v);
+    		}
+    	}
+    }
+    
     public static void main(String[] args) throws Exception{
     	
     	// Question 7
@@ -299,7 +342,7 @@ public class Homework {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         FileInputFormat.addInputPath(job, new Path("/input"));
-        FileOutputFormat.setOutputPath(job, new Path("/output7"));
+        FileOutputFormat.setOutputPath(job, new Path("/output1"));
         job.waitForCompletion(true);
         
         // Question 6 - 5
@@ -310,8 +353,8 @@ public class Homework {
         job2.setReducerClass(TriplesToContextCountReducer.class);
         job2.setOutputKeyClass(IntWritable.class);
         job2.setOutputValueClass(Text.class);
-        FileInputFormat.addInputPath(job2, new Path("/output7/part-r-*")); //CHANGE
-        FileOutputFormat.setOutputPath(job2, new Path("/output6"));
+        FileInputFormat.addInputPath(job2, new Path("/output1/part-r-*")); //CHANGE
+        FileOutputFormat.setOutputPath(job2, new Path("/output2"));
         job2.waitForCompletion(true);
         
         // Question 1 2 3 4 - PART 1
@@ -322,8 +365,8 @@ public class Homework {
         job3.setReducerClass(NodeToDegreeReducer.class);
         job3.setOutputKeyClass(Text.class);
         job3.setOutputValueClass(Text.class);
-        FileInputFormat.addInputPath(job3, new Path("/output7/part-r-*")); //CHANGE
-        FileOutputFormat.setOutputPath(job3, new Path("/output5"));
+        FileInputFormat.addInputPath(job3, new Path("/output1/part-r-*")); //CHANGE
+        FileOutputFormat.setOutputPath(job3, new Path("/output3"));
         job3.waitForCompletion(true);
         
        // Question 1 2 3 4 - PART 2
@@ -335,13 +378,13 @@ public class Homework {
         job4.setReducerClass(DegreeDistributionReducer.class);
         job4.setOutputKeyClass(Text.class);
         job4.setOutputValueClass(IntWritable.class);
-        FileInputFormat.addInputPath(job4, new Path("/output5/part-r-*")); //CHANGE
+        FileInputFormat.addInputPath(job4, new Path("/output3/part-r-*")); //CHANGE
         FileOutputFormat.setOutputPath(job4, new Path("/output4"));
         job4.waitForCompletion(true);
         
         // Question 1 2 3 4 - PART 3
         Configuration conf5 = new Configuration();
-        Job job5 = Job.getInstance(conf5, "Questions1234Part2");
+        Job job5 = Job.getInstance(conf5, "Questions1234Part3");
         job5.setJarByClass(Homework.class);
         job5.setMapperClass(FinalDegreeDistributionMapper.class);
         job5.setCombinerClass(DegreeDistributionReducer.class);
@@ -349,8 +392,20 @@ public class Homework {
         job5.setOutputKeyClass(Text.class);
         job5.setOutputValueClass(IntWritable.class);
         FileInputFormat.addInputPath(job5, new Path("/output4/part-r-*")); //CHANGE
-        FileOutputFormat.setOutputPath(job5, new Path("/output3"));
+        FileOutputFormat.setOutputPath(job5, new Path("/output5"));
         job5.waitForCompletion(true);
+        
+        //Question 4
+        Configuration conf6 = new Configuration();
+        Job job6 = Job.getInstance(conf6, "Questions4");
+        job6.setJarByClass(Homework.class);
+        job6.setMapperClass(outdegreeToNodeMapper.class);
+        job6.setReducerClass(outdegreeToNodeReducer.class);
+        job6.setOutputKeyClass(IntWritable.class);
+        job6.setOutputValueClass(Text.class);
+        FileInputFormat.addInputPath(job6, new Path("/output3/part-r-*")); //CHANGE
+        FileOutputFormat.setOutputPath(job6, new Path("/output6"));
+        job6.waitForCompletion(true);
         
      }
       
